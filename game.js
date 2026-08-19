@@ -3,23 +3,27 @@ const socket = io(BACKEND_URL);
 
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x87CEEB);
-scene.fog = new THREE.Fog(0x87CEEB, 20, 60);
+scene.fog = new THREE.Fog(0x87CEEB, 15, 40);
 
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+scene.add(camera); // Wajib ditambahkan ke scene agar tangan terlihat
+
 const renderer = new THREE.WebGLRenderer({ antialias: false }); 
 renderer.setSize(window.innerWidth, window.innerHeight);
 document.body.appendChild(renderer.domElement);
 
-const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
+const ambientLight = new THREE.AmbientLight(0xffffff, 0.8);
 scene.add(ambientLight);
 const dirLight = new THREE.DirectionalLight(0xffffff, 0.5);
 dirLight.position.set(20, 50, 20);
 scene.add(dirLight);
 
 // ==========================================
-// ASSET TEXTURES & MATERIALS
+// ASSET TEXTURES & FIX CORS
 // ==========================================
 const textureLoader = new THREE.TextureLoader();
+textureLoader.setCrossOrigin('Anonymous'); // PENTING: Mencegah error tekstur hitam
+
 const BASE_URL = 'https://raw.githubusercontent.com/InventivetalentDev/minecraft-assets/master/assets/minecraft/textures/block/';
 
 function loadPixelTexture(filename) {
@@ -29,15 +33,14 @@ function loadPixelTexture(filename) {
     return new THREE.MeshLambertMaterial({ map: tex });
 }
 
-// 6 Tipe Material Blok
 const materials = {
     grass: [
-        loadPixelTexture('grass_block_side.png'), // Kanan
-        loadPixelTexture('grass_block_side.png'), // Kiri
-        loadPixelTexture('grass_block_top.png'),  // Atas
-        loadPixelTexture('dirt.png'),             // Bawah
-        loadPixelTexture('grass_block_side.png'), // Depan
-        loadPixelTexture('grass_block_side.png')  // Belakang
+        loadPixelTexture('grass_block_side.png'),
+        loadPixelTexture('grass_block_side.png'),
+        loadPixelTexture('grass_block_top.png'),
+        loadPixelTexture('dirt.png'),
+        loadPixelTexture('grass_block_side.png'),
+        loadPixelTexture('grass_block_side.png')
     ],
     dirt: loadPixelTexture('dirt.png'),
     wood: [
@@ -53,48 +56,77 @@ const materials = {
     bricks: loadPixelTexture('bricks.png')
 };
 
-const headMaterial = new THREE.MeshLambertMaterial({ 
-    map: textureLoader.load('https://minotar.net/avatar/Steve/64.png') 
-});
+// ==========================================
+// TANGAN PERTAMA (VIEWMODEL) & ANIMASI
+// ==========================================
+const handGeo = new THREE.BoxGeometry(0.3, 0.3, 0.3);
+let handMesh = new THREE.Mesh(handGeo, materials['grass']);
+handMesh.position.set(0.4, -0.3, -0.5); // Posisi di pojok kanan bawah kamera
+handMesh.rotation.set(0, -Math.PI / 4, Math.PI / 8);
+camera.add(handMesh);
+
+let isSwinging = false;
+let swingProgress = 0;
+
+function swingHand() {
+    if (!isSwinging) isSwinging = true;
+}
 
 // ==========================================
-// GENERATOR DUNIA
+// GENERATOR DUNIA BERGELOMBANG (BUKIT)
 // ==========================================
 const blocksData = {}; 
 const blockObjects = []; 
 const blockGeometry = new THREE.BoxGeometry(1, 1, 1);
 
-function createBlock(x, y, z, type, isLocal = true) {
-    const mat = materials[type] || materials['stone']; // Fallback
+function createBlock(x, y, z, type, emit = false) {
+    const key = `${x},${y},${z}`;
+    if (blocksData[key]) return; // Jangan tumpuk blok
+
+    const mat = materials[type] || materials['stone'];
     const block = new THREE.Mesh(blockGeometry, mat);
     block.position.set(x, y, z);
     scene.add(block);
     
-    const key = `${x},${y},${z}`;
     blocksData[key] = block;
     blockObjects.push(block);
+
+    if (emit) socket.emit('placeBlock', { x, y, z, type });
     return block;
 }
 
-function removeBlock(x, y, z) {
+function removeBlock(x, y, z, emit = false) {
     const key = `${x},${y},${z}`;
     if (blocksData[key]) {
         scene.remove(blocksData[key]);
         const index = blockObjects.indexOf(blocksData[key]);
         if (index > -1) blockObjects.splice(index, 1);
         delete blocksData[key];
+        if (emit) socket.emit('breakBlock', { x, y, z });
     }
 }
 
-// Lantai Dasar 20x20
-for (let x = -10; x <= 10; x++) {
-    for (let z = -10; z <= 10; z++) {
-        createBlock(x, 0, z, 'grass');
+// Fungsi Matematika untuk membuat bukit bergelombang
+function generateTerrain() {
+    const worldSize = 15; // 30x30 blok
+    for (let x = -worldSize; x <= worldSize; x++) {
+        for (let z = -worldSize; z <= worldSize; z++) {
+            // Kalkulasi ketinggian (Noise buatan sederhana)
+            let height = Math.floor(Math.sin(x * 0.2) * Math.cos(z * 0.2) * 3 + Math.sin(x * 0.5) * 1.5);
+            
+            // Susun blok dari bawah ke atas
+            for (let y = -4; y <= height; y++) {
+                if (y === height) createBlock(x, y, z, 'grass');
+                else if (y > height - 3) createBlock(x, y, z, 'dirt');
+                else createBlock(x, y, z, 'stone');
+            }
+        }
     }
 }
+generateTerrain();
 
 // ==========================================
-// HOTBAR & INVENTORY LOGIC
+// HOTBAR LOGIC
 // ==========================================
 let currentSelectedBlock = 'grass';
 const slots = ['grass', 'dirt', 'wood', 'stone', 'cobblestone', 'bricks'];
@@ -102,19 +134,20 @@ const slots = ['grass', 'dirt', 'wood', 'stone', 'cobblestone', 'bricks'];
 window.addEventListener('keydown', (e) => {
     if(document.activeElement.id === 'chat-input') return;
     
-    // Angka 1-6 untuk ganti blok
     if (e.key >= '1' && e.key <= '6') {
         const index = parseInt(e.key) - 1;
         currentSelectedBlock = slots[index];
         
-        // Update UI Hotbar
+        // Update tekstur blok di tangan
+        handMesh.material = materials[currentSelectedBlock];
+
         document.querySelectorAll('.slot').forEach(el => el.classList.remove('active'));
         document.getElementById(`slot-${e.key}`).classList.add('active');
     }
 });
 
 // ==========================================
-// INTERAKSI RAYCASTER (TARUH / HANCURKAN)
+// RAYCASTER (MENARUH / MENGHANCURKAN)
 // ==========================================
 const raycaster = new THREE.Raycaster();
 const centerVector = new THREE.Vector2(0, 0);
@@ -132,22 +165,19 @@ document.addEventListener('contextmenu', e => e.preventDefault());
 
 document.addEventListener('mousedown', (e) => {
     if (!controls.isLocked) return;
+    swingHand(); // Jalankan animasi tangan memukul
     
-    if (e.button === 0 && targetBlock && targetBlock.position.y !== 0) { 
-        // HANCURKAN (Kiri) - Jangan hancurkan lantai 0
+    if (e.button === 0 && targetBlock) { 
         const pos = targetBlock.position;
-        removeBlock(pos.x, pos.y, pos.z);
-        socket.emit('breakBlock', { x: pos.x, y: pos.y, z: pos.z });
+        // Mencegah menghancurkan bedrock tiruan (batas bawah)
+        if (pos.y > -4) removeBlock(pos.x, pos.y, pos.z, true);
     } 
     else if (e.button === 2 && placePosition) {
-        // TARUH BLOK (Kanan)
         const pPos = camera.position;
-        // Jarak aman agar tidak menaruh blok di kepala sendiri
         const dist = Math.sqrt(Math.pow(pPos.x - placePosition.x, 2) + Math.pow(pPos.y - 1.5 - placePosition.y, 2) + Math.pow(pPos.z - placePosition.z, 2));
         
         if (dist > 1.0) { 
-            createBlock(placePosition.x, placePosition.y, placePosition.z, currentSelectedBlock);
-            socket.emit('placeBlock', { x: placePosition.x, y: placePosition.y, z: placePosition.z, type: currentSelectedBlock });
+            createBlock(placePosition.x, placePosition.y, placePosition.z, currentSelectedBlock, true);
         }
     }
 });
@@ -156,14 +186,11 @@ function updateRaycaster() {
     raycaster.setFromCamera(centerVector, camera);
     const intersects = raycaster.intersectObjects(blockObjects);
 
-    if (intersects.length > 0 && intersects[0].distance < 6) { 
-        const intersect = intersects[0];
-        targetBlock = intersect.object;
-        
+    if (intersects.length > 0 && intersects[0].distance < 5) { 
+        targetBlock = intersects[0].object;
         blockHighlight.position.copy(targetBlock.position);
         blockHighlight.visible = true;
-
-        placePosition = intersect.object.position.clone().add(intersect.face.normal);
+        placePosition = targetBlock.position.clone().add(intersects[0].face.normal);
     } else {
         targetBlock = null;
         placePosition = null;
@@ -172,7 +199,7 @@ function updateRaycaster() {
 }
 
 // ==========================================
-// KONTROL FIRST-PERSON & FISIKA MINECRAFT
+// KONTROL & FISIKA TABRAKAN
 // ==========================================
 const controls = new THREE.PointerLockControls(camera, document.body);
 const uiMenu = document.getElementById('ui-menu');
@@ -193,7 +220,7 @@ window.addEventListener('keydown', (e) => {
         case 'KeyA': moveState.left = true; break;
         case 'KeyD': moveState.right = true; break;
         case 'Space': 
-            if (moveState.canJump) { velocityY = 8.5; moveState.canJump = false; }
+            if (moveState.canJump) { velocityY = 8; moveState.canJump = false; }
             break;
     }
 });
@@ -206,16 +233,13 @@ window.addEventListener('keyup', (e) => {
     }
 });
 
-// Deteksi Tabrakan Presisi Tinggi
 function isBlockSolid(x, y, z) {
     return !!blocksData[`${Math.round(x)},${Math.round(y)},${Math.round(z)}`];
 }
 
 function checkCollision(newX, newY, newZ) {
-    const r = 0.25; // Jari-jari tabrakan pemain
-    const yPoints = [Math.round(newY - 1.5), Math.round(newY - 0.5)]; // Kaki dan Badan
-    
-    // Periksa titik pusat dan 4 sudut hitbox
+    const r = 0.25; 
+    const yPoints = [Math.round(newY - 1.5), Math.round(newY - 0.5)]; 
     const offsets = [[0,0], [r,r], [-r,-r], [r,-r], [-r,r]];
     
     for (let yp of yPoints) {
@@ -227,60 +251,19 @@ function checkCollision(newX, newY, newZ) {
 }
 
 // ==========================================
-// MULTIPLAYER & CHAT (TIDAK BERUBAH)
+// MULTIPLAYER (SINKRONISASI STATE)
 // ==========================================
-const otherPlayers = {};
-
-function createPlayerModel(playerInfo) {
-    const playerGroup = new THREE.Group();
-    const headGeo = new THREE.BoxGeometry(0.6, 0.6, 0.6);
-    const head = new THREE.Mesh(headGeo, headMaterial);
-    head.position.y = 1.3;
-    
-    const bodyGeo = new THREE.BoxGeometry(0.6, 0.9, 0.3);
-    const bodyMat = new THREE.MeshLambertMaterial({ color: 0x1d1d87 });
-    const body = new THREE.Mesh(bodyGeo, bodyMat);
-    body.position.y = 0.5;
-    
-    playerGroup.add(head);
-    playerGroup.add(body);
-    
-    playerGroup.position.set(playerInfo.x, playerInfo.y, playerInfo.z);
-    scene.add(playerGroup);
-    return playerGroup;
-}
-
-socket.on('currentPlayers', (players) => {
-    Object.keys(players).forEach((id) => {
-        if (id !== socket.id) {
-            otherPlayers[id] = createPlayerModel(players[id]);
-        } else {
-            camera.position.set(players[id].x, players[id].y, players[id].z);
-        }
-    });
-});
-
 socket.on('worldState', (changes) => {
     for (const key in changes) {
         const [x, y, z] = key.split(',').map(Number);
-        if (changes[key] === 'air') removeBlock(x, y, z);
-        else createBlock(x, y, z, changes[key]);
-    }
-});
-
-socket.on('newPlayer', (data) => otherPlayers[data.id] = createPlayerModel(data.player));
-socket.on('playerMoved', (data) => {
-    if (otherPlayers[data.id]) {
-        otherPlayers[data.id].position.set(data.x, data.y - 1.5, data.z);
-        otherPlayers[data.id].rotation.y = data.ry; 
+        if (changes[key] === 'air') removeBlock(x, y, z, false);
+        else createBlock(x, y, z, changes[key], false);
     }
 });
 socket.on('blockPlaced', (data) => createBlock(data.x, data.y, data.z, data.type, false));
-socket.on('blockBroken', (data) => removeBlock(data.x, data.y, data.z));
-socket.on('playerDisconnected', (id) => {
-    if (otherPlayers[id]) { scene.remove(otherPlayers[id]); delete otherPlayers[id]; }
-});
+socket.on('blockBroken', (data) => removeBlock(data.x, data.y, data.z, false));
 
+// System Chat
 const chatInput = document.getElementById('chat-input');
 const chatMessages = document.getElementById('chat-messages');
 
@@ -290,7 +273,6 @@ socket.on('receiveChat', (data) => {
     chatMessages.appendChild(msg);
     chatMessages.scrollTop = chatMessages.scrollHeight;
 });
-
 chatInput.addEventListener('keypress', (e) => {
     if (e.key === 'Enter' && chatInput.value.trim() !== '') {
         socket.emit('sendChat', chatInput.value);
@@ -299,8 +281,11 @@ chatInput.addEventListener('keypress', (e) => {
     }
 });
 
+// Kamera Spawn Point (Di atas bukit)
+camera.position.set(0, 15, 0);
+
 // ==========================================
-// GAME LOOP 
+// GAME LOOP
 // ==========================================
 let prevTime = performance.now();
 
@@ -310,20 +295,30 @@ function animate() {
     const time = performance.now();
     const delta = (time - prevTime) / 1000;
 
+    // Animasi Tangan Memukul
+    if (isSwinging) {
+        swingProgress += delta * 15;
+        handMesh.rotation.x = -Math.sin(swingProgress) * 0.5;
+        handMesh.position.y = -0.3 - Math.sin(swingProgress) * 0.1;
+        if (swingProgress > Math.PI) {
+            isSwinging = false;
+            swingProgress = 0;
+            handMesh.rotation.x = 0;
+            handMesh.position.y = -0.3;
+        }
+    }
+
     if (controls.isLocked) {
         updateRaycaster(); 
 
-        // 1. GRAVITASI
         velocityY -= 25.0 * delta; 
         let intendedY = camera.position.y + (velocityY * delta);
 
         if (checkCollision(camera.position.x, intendedY, camera.position.z)) {
             if (velocityY < 0) { 
-                // Menyentuh lantai
                 velocityY = 0;
                 moveState.canJump = true;
             } else {
-                // Menyentuh atap
                 velocityY = 0;
             }
         } else {
@@ -331,56 +326,39 @@ function animate() {
             if (velocityY < -3) moveState.canJump = false; 
         }
 
-        // Jika jatuh ke void
-        if (camera.position.y < -10) {
-            camera.position.set(0, 5, 0);
+        if (camera.position.y < -15) {
+            camera.position.set(0, 15, 0);
             velocityY = 0;
         }
 
-        // 2. PERGERAKAN WASD (FIX TERBALIK)
         let dirZ = Number(moveState.forward) - Number(moveState.backward);
         let dirX = Number(moveState.right) - Number(moveState.left);
         
-        // Normalisasi agar kecepatan serong sama dengan lurus
         if (dirZ !== 0 || dirX !== 0) {
             const length = Math.sqrt(dirZ * dirZ + dirX * dirX);
             dirZ /= length;
             dirX /= length;
+            
+            // Efek jalan (Bobbing kamera)
+            camera.position.y += Math.sin(time * 0.01) * 0.02;
         }
 
-        const speed = 5.0; // Kecepatan gerak karakter (Snappy)
-
-        // Simpan posisi sebelum bergerak
+        const speed = 5.0; 
         const prevPosition = camera.position.clone();
 
-        // Gunakan PointerLockControls untuk mengkalkulasi arah depan & samping relatif dari kamera
         controls.moveForward(dirZ * speed * delta);
         controls.moveRight(dirX * speed * delta);
 
         const intendedX = camera.position.x;
         const intendedZ = camera.position.z;
 
-        // Kembalikan ke posisi awal, lalu cek tabrakan per sumbu
         camera.position.copy(prevPosition);
 
-        // Uji Sumbu X
         if (!checkCollision(intendedX, camera.position.y, camera.position.z)) {
             camera.position.x = intendedX;
         }
-
-        // Uji Sumbu Z
         if (!checkCollision(camera.position.x, camera.position.y, intendedZ)) {
             camera.position.z = intendedZ;
-        }
-
-        // 3. MULTIPLAYER UPDATE
-        if (dirX !== 0 || dirZ !== 0 || Math.abs(velocityY) > 0.1) {
-            socket.emit('playerMovement', { 
-                x: camera.position.x, 
-                y: camera.position.y, 
-                z: camera.position.z, 
-                ry: camera.rotation.y 
-            });
         }
     }
 
