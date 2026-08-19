@@ -3,7 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Minecraft Web Prototype</title>
+    <title>Minecraft Web Clone</title>
+    <!-- Font Pixel ala Minecraft -->
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
     
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -13,26 +15,34 @@
 <body>
     <div id="crosshair">+</div>
 
-    <!-- Hotbar UI ala Minecraft -->
+    <!-- Hotbar UI -->
     <div id="hotbar">
-        <div class="slot active" id="slot-1" data-type="grass"><img src="https://raw.githubusercontent.com/InventivetalentDev/minecraft-assets/master/assets/minecraft/textures/block/grass_block_side.png"><span>1</span></div>
-        <div class="slot" id="slot-2" data-type="dirt"><img src="https://raw.githubusercontent.com/InventivetalentDev/minecraft-assets/master/assets/minecraft/textures/block/dirt.png"><span>2</span></div>
-        <div class="slot" id="slot-3" data-type="wood"><img src="https://raw.githubusercontent.com/InventivetalentDev/minecraft-assets/master/assets/minecraft/textures/block/oak_log.png"><span>3</span></div>
-        <div class="slot" id="slot-4" data-type="stone"><img src="https://raw.githubusercontent.com/InventivetalentDev/minecraft-assets/master/assets/minecraft/textures/block/stone.png"><span>4</span></div>
-        <div class="slot" id="slot-5" data-type="cobblestone"><img src="https://raw.githubusercontent.com/InventivetalentDev/minecraft-assets/master/assets/minecraft/textures/block/cobblestone.png"><span>5</span></div>
-        <div class="slot" id="slot-6" data-type="bricks"><img src="https://raw.githubusercontent.com/InventivetalentDev/minecraft-assets/master/assets/minecraft/textures/block/bricks.png"><span>6</span></div>
+        <div class="slot active" id="slot-1" data-type="grass"><img id="img-grass"><span>1</span></div>
+        <div class="slot" id="slot-2" data-type="dirt"><img id="img-dirt"><span>2</span></div>
+        <div class="slot" id="slot-3" data-type="wood"><img id="img-wood"><span>3</span></div>
+        <div class="slot" id="slot-4" data-type="stone"><img id="img-stone"><span>4</span></div>
+        <div class="slot" id="slot-5" data-type="cobblestone"><img id="img-cobblestone"><span>5</span></div>
+        <div class="slot" id="slot-6" data-type="bricks"><img id="img-bricks"><span>6</span></div>
     </div>
 
+    <!-- UI Menu -->
     <div id="ui-menu">
-        <h1>Minecraft Web</h1>
-        <button id="btn-play">Klik Untuk Bermain</button>
-        <p>W, A, S, D = Bergerak | Spasi = Lompat | Klik Kiri = Hancurkan | Klik Kanan = Taruh Blok</p>
-        <p>Tekan 1-6 untuk mengganti blok</p>
+        <div id="menu-box">
+            <h1>MINECRAFT<br><span style="font-size: 14px; color:#e0e0e0;">WEB EDITION</span></h1>
+            <button id="btn-play">Mulai Bermain</button>
+            <div class="controls-info">
+                <p>WASD: Bergerak | SPASI: Lompat</p>
+                <p>KLIK KIRI: Hancurkan Blok</p>
+                <p>KLIK KANAN: Taruh Blok</p>
+                <p>1-6: Pilih Blok | ESC: Menu / Chat</p>
+            </div>
+        </div>
     </div>
 
+    <!-- UI Chat -->
     <div id="chat-container">
         <div id="chat-messages"></div>
-        <input type="text" id="chat-input" placeholder="Tekan ESC lalu klik di sini untuk chat..." autocomplete="off" />
+        <input type="text" id="chat-input" placeholder="Ketik pesan..." autocomplete="off" />
     </div>
 
     <script src="game.js"></script>
