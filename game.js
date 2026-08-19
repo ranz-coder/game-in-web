@@ -1,110 +1,187 @@
 // ==========================================
 // PENGATURAN KONEKSI MULTIPLAYER
 // ==========================================
-// GANTI DENGAN URL BACKEND ANDA YANG SUDAH HTTPS
 const BACKEND_URL = 'https://game-in-web-api.ranzzawok.my.id'; 
 const socket = io(BACKEND_URL); 
 
 // ==========================================
-// SETUP SCENE & KAMERA
+// SETUP SCENE, KAMERA & RENDERER
 // ==========================================
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x87CEEB); // Langit biru
-scene.fog = new THREE.Fog(0x87CEEB, 10, 50);  // Efek kabut
+scene.background = new THREE.Color(0x87CEEB);
+scene.fog = new THREE.Fog(0x87CEEB, 20, 60);
 
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-const renderer = new THREE.WebGLRenderer({ antialias: false }); // Antialias false agar lebih terlihat 'pixelated'
+const renderer = new THREE.WebGLRenderer({ antialias: false }); 
 renderer.setSize(window.innerWidth, window.innerHeight);
 document.body.appendChild(renderer.domElement);
 
-// Pencahayaan
-const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
 scene.add(ambientLight);
-const dirLight = new THREE.DirectionalLight(0xffffff, 0.6);
+const dirLight = new THREE.DirectionalLight(0xffffff, 0.5);
 dirLight.position.set(20, 50, 20);
 scene.add(dirLight);
 
 // ==========================================
-// GENERATOR DUNIA VOXEL (BLOK MINECRAFT)
+// ASSET TEXTURES (DARI CDN PIXELATED)
+// ==========================================
+const textureLoader = new THREE.TextureLoader();
+function loadPixelTexture(url) {
+    const tex = textureLoader.load(url);
+    tex.magFilter = THREE.NearestFilter; // Kunci agar gambar bergaya pixelated tajam
+    tex.minFilter = THREE.NearestFilter;
+    return tex;
+}
+
+// Mengambil Asset tekstur Minecraft publik
+const texGrassTop = loadPixelTexture('https://raw.githubusercontent.com/mrdoob/three.js/master/examples/textures/minecraft/grass.png');
+const texGrassSide = loadPixelTexture('https://raw.githubusercontent.com/mrdoob/three.js/master/examples/textures/minecraft/grass_dirt.png');
+const texDirt = loadPixelTexture('https://raw.githubusercontent.com/mrdoob/three.js/master/examples/textures/minecraft/dirt.png');
+const texWood = loadPixelTexture('https://raw.githubusercontent.com/mrdoob/three.js/master/examples/textures/minecraft/wood.png');
+const texSteveHead = loadPixelTexture('https://minotar.net/avatar/Steve/64.png'); // Kepala Steve
+
+const matGrass = [
+    new THREE.MeshLambertMaterial({ map: texGrassSide }), // Kanan
+    new THREE.MeshLambertMaterial({ map: texGrassSide }), // Kiri
+    new THREE.MeshLambertMaterial({ map: texGrassTop }),  // Atas
+    new THREE.MeshLambertMaterial({ map: texDirt }),      // Bawah
+    new THREE.MeshLambertMaterial({ map: texGrassSide }), // Depan
+    new THREE.MeshLambertMaterial({ map: texGrassSide })  // Belakang
+];
+const matWood = new THREE.MeshLambertMaterial({ map: texWood });
+
+// ==========================================
+// GENERATOR DUNIA & SISTEM BLOK
 // ==========================================
 const blockSize = 1;
-const worldSize = 15; // Dunia ukuran 30x30 blok
-
-// Membuat material balok (Atas rumput hijau, samping tanah cokelat)
-const grassMat = new THREE.MeshLambertMaterial({ color: 0x3b8526 }); // Hijau
-const dirtMat = new THREE.MeshLambertMaterial({ color: 0x79553a });  // Cokelat
-const blockMaterials = [
-    dirtMat,  // Kanan
-    dirtMat,  // Kiri
-    grassMat, // Atas
-    dirtMat,  // Bawah
-    dirtMat,  // Depan
-    dirtMat   // Belakang
-];
+const worldSize = 10;
+const blocksData = {}; // Menyimpan referensi blok untuk Collision
+const blockObjects = []; // Untuk target Raycaster
 
 const blockGeometry = new THREE.BoxGeometry(blockSize, blockSize, blockSize);
 
-// Generate lantai balok
-for (let x = -worldSize; x <= worldSize; x++) {
-    for (let z = -worldSize; z <= worldSize; z++) {
-        const block = new THREE.Mesh(blockGeometry, blockMaterials);
-        block.position.set(x, 0, z);
-        scene.add(block);
+function createBlock(x, y, z, type, isLocal = true) {
+    let material = matGrass;
+    if (type === 'wood') material = matWood;
+
+    const block = new THREE.Mesh(blockGeometry, material);
+    block.position.set(x, y, z);
+    scene.add(block);
+    
+    const key = `${x},${y},${z}`;
+    blocksData[key] = block;
+    blockObjects.push(block);
+
+    // Outline pinggiran blok saat disorot akan diproses terpisah
+    return block;
+}
+
+function removeBlock(x, y, z) {
+    const key = `${x},${y},${z}`;
+    if (blocksData[key]) {
+        scene.remove(blocksData[key]);
+        const index = blockObjects.indexOf(blocksData[key]);
+        if (index > -1) blockObjects.splice(index, 1);
+        delete blocksData[key];
     }
 }
 
-// Tambahkan beberapa tiang/pohon sederhana secara acak
-for (let i = 0; i < 15; i++) {
-    const woodGeo = new THREE.BoxGeometry(1, 4, 1);
-    const woodMat = new THREE.MeshLambertMaterial({ color: 0x5c4033 });
-    const wood = new THREE.Mesh(woodGeo, woodMat);
-    wood.position.set(
-        Math.floor(Math.random() * 20 - 10), 
-        2.5, 
-        Math.floor(Math.random() * 20 - 10)
-    );
-    scene.add(wood);
+// Generate Dunia Awal
+for (let x = -worldSize; x <= worldSize; x++) {
+    for (let z = -worldSize; z <= worldSize; z++) {
+        createBlock(x, 0, z, 'grass');
+    }
 }
 
 // ==========================================
-// KONTROL FIRST-PERSON (POINTER LOCK)
+// INTERAKSI RAYCASTER (HANCURKAN / TARUH BLOK)
+// ==========================================
+const raycaster = new THREE.Raycaster();
+const centerVector = new THREE.Vector2(0, 0); // Selalu dari tengah layar (crosshair)
+
+// Highlight blok yang disorot
+const wireframeGeo = new THREE.EdgesGeometry(blockGeometry);
+const wireframeMat = new THREE.LineBasicMaterial({ color: 0x000000, linewidth: 2 });
+const blockHighlight = new THREE.LineSegments(wireframeGeo, wireframeMat);
+blockHighlight.visible = false;
+scene.add(blockHighlight);
+
+let targetBlock = null;
+let placePosition = null;
+
+// Matikan klik kanan bawaan browser (Context Menu)
+document.addEventListener('contextmenu', e => e.preventDefault());
+
+document.addEventListener('mousedown', (e) => {
+    if (!controls.isLocked) return;
+    
+    // Klik Kiri (0) = Hancurkan Blok, Klik Kanan (2) = Taruh Blok Kayu
+    if (e.button === 0 && targetBlock && targetBlock.position.y !== 0) { // Jangan hancurkan lantai dasar
+        const pos = targetBlock.position;
+        removeBlock(pos.x, pos.y, pos.z);
+        socket.emit('breakBlock', { x: pos.x, y: pos.y, z: pos.z });
+    } 
+    else if (e.button === 2 && placePosition) {
+        // Mencegah menaruh blok di dalam tubuh karakter sendiri
+        const pPos = camera.position;
+        const dist = Math.sqrt(Math.pow(pPos.x - placePosition.x, 2) + Math.pow(pPos.y - 1.5 - placePosition.y, 2) + Math.pow(pPos.z - placePosition.z, 2));
+        
+        if (dist > 1.2) { // Jarak aman
+            createBlock(placePosition.x, placePosition.y, placePosition.z, 'wood');
+            socket.emit('placeBlock', { x: placePosition.x, y: placePosition.y, z: placePosition.z, type: 'wood' });
+        }
+    }
+});
+
+function updateRaycaster() {
+    raycaster.setFromCamera(centerVector, camera);
+    const intersects = raycaster.intersectObjects(blockObjects);
+
+    if (intersects.length > 0 && intersects[0].distance < 6) { // Maksimal jarak interaksi 6 blok
+        const intersect = intersects[0];
+        targetBlock = intersect.object;
+        
+        // Posisi untuk highlight blok yang disorot
+        blockHighlight.position.copy(targetBlock.position);
+        blockHighlight.visible = true;
+
+        // Posisi jika kita ingin menaruh blok baru (di sisi blok yang disorot)
+        placePosition = intersect.object.position.clone().add(intersect.face.normal);
+    } else {
+        targetBlock = null;
+        placePosition = null;
+        blockHighlight.visible = false;
+    }
+}
+
+// ==========================================
+// KONTROL FIRST-PERSON & FISIKA TABRAKAN
 // ==========================================
 const controls = new THREE.PointerLockControls(camera, document.body);
 const uiMenu = document.getElementById('ui-menu');
 const btnPlay = document.getElementById('btn-play');
 
-btnPlay.addEventListener('click', () => {
-    controls.lock(); // Mengunci mouse ke dalam game
-});
+btnPlay.addEventListener('click', () => controls.lock());
+controls.addEventListener('lock', () => uiMenu.style.display = 'none');
+controls.addEventListener('unlock', () => uiMenu.style.display = 'flex');
 
-controls.addEventListener('lock', () => {
-    uiMenu.style.display = 'none'; // Sembunyikan menu
-});
-
-controls.addEventListener('unlock', () => {
-    uiMenu.style.display = 'flex'; // Tampilkan menu saat tekan ESC
-});
-
-// Fisika & Pergerakan
 const velocity = new THREE.Vector3();
 const direction = new THREE.Vector3();
 const moveState = { forward: false, backward: false, left: false, right: false, canJump: false };
 
 window.addEventListener('keydown', (e) => {
+    // Jangan izinkan jalan saat ngetik di chat
+    if(document.activeElement.id === 'chat-input') return; 
     switch (e.code) {
         case 'KeyW': moveState.forward = true; break;
         case 'KeyS': moveState.backward = true; break;
         case 'KeyA': moveState.left = true; break;
         case 'KeyD': moveState.right = true; break;
         case 'Space': 
-            if (moveState.canJump) {
-                velocity.y += 8; // Kekuatan lompat
-                moveState.canJump = false;
-            }
+            if (moveState.canJump) { velocity.y = 8; moveState.canJump = false; }
             break;
     }
 });
-
 window.addEventListener('keyup', (e) => {
     switch (e.code) {
         case 'KeyW': moveState.forward = false; break;
@@ -114,43 +191,95 @@ window.addEventListener('keyup', (e) => {
     }
 });
 
-// Kamera mulai pada ketinggian karakter
-camera.position.y = 2; 
+// FUNGSI DETEKSI TABRAKAN (COLLISION)
+function checkCollision(x, y, z) {
+    const rx = Math.round(x);
+    const rz = Math.round(z);
+    
+    // Karakter memiliki tinggi ~1.8 blok. Kita periksa blok di area Kaki dan area Kepala.
+    const footY = Math.floor(y - 1.5); 
+    const headY = Math.floor(y - 0.5); 
+    
+    // Apakah ada blok padat di koordinat tersebut?
+    if (blocksData[`${rx},${footY},${rz}`] || blocksData[`${rx},${headY},${rz}`]) {
+        return true;
+    }
+    return false;
+}
 
 // ==========================================
-// MULTIPLAYER LOGIC
+// MULTIPLAYER LOGIC & MODEL PEMAIN (STEVE)
 // ==========================================
 const otherPlayers = {};
-const playerGeo = new THREE.BoxGeometry(0.8, 1.8, 0.8); // Ukuran badan pemain
 
-function addOtherPlayer(id, playerInfo) {
-    const mat = new THREE.MeshLambertMaterial({ color: playerInfo.color });
-    const mesh = new THREE.Mesh(playerGeo, mat);
-    mesh.position.set(playerInfo.x, playerInfo.y + 0.9, playerInfo.z); // +0.9 agar tidak tembus tanah
-    scene.add(mesh);
-    otherPlayers[id] = mesh;
+function createPlayerModel(playerInfo) {
+    const playerGroup = new THREE.Group();
+    
+    // Kepala Steve
+    const headGeo = new THREE.BoxGeometry(0.5, 0.5, 0.5);
+    const headMat = new THREE.MeshLambertMaterial({ map: texSteveHead });
+    const head = new THREE.Mesh(headGeo, headMat);
+    head.position.y = 1.25;
+    
+    // Badan Baju Biru
+    const bodyGeo = new THREE.BoxGeometry(0.5, 0.75, 0.25);
+    const bodyMat = new THREE.MeshLambertMaterial({ color: 0x1d1d87 });
+    const body = new THREE.Mesh(bodyGeo, bodyMat);
+    body.position.y = 0.6;
+    
+    // Kaki Celana Biru Tua
+    const legGeo = new THREE.BoxGeometry(0.5, 0.6, 0.25);
+    const legMat = new THREE.MeshLambertMaterial({ color: 0x3a3a78 });
+    const legs = new THREE.Mesh(legGeo, legMat);
+    legs.position.y = -0.1;
+
+    playerGroup.add(head);
+    playerGroup.add(body);
+    playerGroup.add(legs);
+    
+    playerGroup.position.set(playerInfo.x, playerInfo.y, playerInfo.z);
+    scene.add(playerGroup);
+    return playerGroup;
 }
 
 socket.on('currentPlayers', (players) => {
     Object.keys(players).forEach((id) => {
         if (id !== socket.id) {
-            addOtherPlayer(id, players[id]);
+            otherPlayers[id] = createPlayerModel(players[id]);
         } else {
-            camera.position.set(players[id].x, 2, players[id].z);
+            camera.position.set(players[id].x, players[id].y, players[id].z);
         }
     });
 });
 
+socket.on('worldState', (changes) => {
+    for (const key in changes) {
+        const [x, y, z] = key.split(',').map(Number);
+        if (changes[key] === 'air') {
+            removeBlock(x, y, z);
+        } else {
+            createBlock(x, y, z, changes[key]);
+        }
+    }
+});
+
 socket.on('newPlayer', (data) => {
-    addOtherPlayer(data.id, data.player);
+    otherPlayers[data.id] = createPlayerModel(data.player);
 });
 
 socket.on('playerMoved', (data) => {
     if (otherPlayers[data.id]) {
-        // Mengubah posisi mesh pemain lain
-        otherPlayers[data.id].position.x = data.x;
-        otherPlayers[data.id].position.z = data.z;
+        otherPlayers[data.id].position.set(data.x, data.y - 1.5, data.z);
+        otherPlayers[data.id].rotation.y = data.ry; // Rotasi pemain mengikuti pandangan kamera
     }
+});
+
+socket.on('blockPlaced', (data) => {
+    createBlock(data.x, data.y, data.z, data.type, false);
+});
+
+socket.on('blockBroken', (data) => {
+    removeBlock(data.x, data.y, data.z);
 });
 
 socket.on('playerDisconnected', (id) => {
@@ -169,7 +298,7 @@ const chatMessages = document.getElementById('chat-messages');
 socket.on('receiveChat', (data) => {
     const msgElement = document.createElement('div');
     const shortId = data.id.substring(0, 4);
-    msgElement.innerText = `<Player-${shortId}> ${data.message}`;
+    msgElement.innerText = `<Pemain-${shortId}> ${data.message}`;
     chatMessages.appendChild(msgElement);
     chatMessages.scrollTop = chatMessages.scrollHeight;
 });
@@ -178,14 +307,10 @@ chatInput.addEventListener('keypress', (e) => {
     if (e.key === 'Enter' && chatInput.value.trim() !== '') {
         socket.emit('sendChat', chatInput.value);
         chatInput.value = '';
-        controls.lock(); // Kembali ke game otomatis setelah nge-chat
+        controls.lock(); 
     }
 });
-
-// Mencegah pergerakan wasd masuk ke text chat jika mouse tidak di-lock
-chatInput.addEventListener('keydown', (e) => {
-    e.stopPropagation();
-});
+chatInput.addEventListener('keydown', e => e.stopPropagation());
 
 // ==========================================
 // GAME LOOP (ANIMASI & FISIKA)
@@ -199,34 +324,71 @@ function animate() {
     const delta = (time - prevTime) / 1000;
 
     if (controls.isLocked) {
-        // Efek perlambatan (Friksi)
+        updateRaycaster(); // Cek bidikan crosshair
+
+        // Friksi dan Gravitasi
         velocity.x -= velocity.x * 10.0 * delta;
         velocity.z -= velocity.z * 10.0 * delta;
-        velocity.y -= 25.0 * delta; // Gravitasi
+        velocity.y -= 25.0 * delta; 
 
         direction.z = Number(moveState.forward) - Number(moveState.backward);
         direction.x = Number(moveState.right) - Number(moveState.left);
-        direction.normalize(); // Biar jalan serong tidak lebih cepat
+        direction.normalize();
 
-        // Kecepatan gerak
-        if (moveState.forward || moveState.backward) velocity.z -= direction.z * 40.0 * delta;
-        if (moveState.left || moveState.right) velocity.x -= direction.x * 40.0 * delta;
+        if (moveState.forward || moveState.backward) velocity.z -= direction.z * 30.0 * delta;
+        if (moveState.left || moveState.right) velocity.x -= direction.x * 30.0 * delta;
 
-        // Terapkan kecepatan ke kamera (Pemain)
-        controls.moveRight(-velocity.x * delta);
-        controls.moveForward(-velocity.z * delta);
-        camera.position.y += velocity.y * delta;
+        // SISTEM COLLISION SAAT BERGERAK (Cek X, Y, Z secara terpisah)
+        let newX = camera.position.x - (velocity.x * delta);
+        let newZ = camera.position.z - (velocity.z * delta);
+        let newY = camera.position.y + (velocity.y * delta);
 
-        // Deteksi tabrakan dengan tanah (lantai ada di y=0.5)
-        if (camera.position.y < 2) {
-            velocity.y = 0;
-            camera.position.y = 2;
-            moveState.canJump = true;
+        // Jika tabrak tembok di X, hentikan gerakan X
+        if (checkCollision(newX, camera.position.y, camera.position.z)) {
+            velocity.x = 0;
+            newX = camera.position.x; 
+        }
+        
+        // Jika tabrak tembok di Z, hentikan gerakan Z
+        if (checkCollision(camera.position.x, camera.position.y, newZ)) {
+            velocity.z = 0;
+            newZ = camera.position.z;
         }
 
-        // Kirim posisi kita ke server agar dilihat pemain lain
-        if (Math.abs(velocity.x) > 0.1 || Math.abs(velocity.z) > 0.1) {
-            socket.emit('playerMovement', { x: camera.position.x, z: camera.position.z });
+        // Terapkan gerakan Horizontal
+        controls.getObject().position.x = newX;
+        controls.getObject().position.z = newZ;
+
+        // Cek Pijakan Bawah (Jatuh / Berdiri)
+        if (checkCollision(camera.position.x, newY, camera.position.z)) {
+            // Jatuh menabrak lantai
+            if (velocity.y < 0) {
+                velocity.y = 0;
+                moveState.canJump = true;
+                // Snap ketinggian ke atas blok agar tidak tembus
+                camera.position.y = Math.floor(camera.position.y) + 0.5; 
+            } else { 
+                // Lompat membentur atap
+                velocity.y = 0;
+                camera.position.y -= 0.1;
+            }
+        } else {
+            camera.position.y = newY;
+            // Jika jatuh dari tebing, hapus state bisa lompat
+            if (velocity.y < -5) moveState.canJump = false; 
+        }
+
+        // Batas bawah dunia (Mati masuk void, respawn ke atas)
+        if (camera.position.y < -10) {
+            camera.position.set(0, 10, 0);
+            velocity.y = 0;
+        }
+
+        // Kirim update posisi ke server terus menerus jika sedang bergerak
+        if (Math.abs(velocity.x) > 0.05 || Math.abs(velocity.z) > 0.05 || Math.abs(velocity.y) > 0.05) {
+            // Ambil arah hadap kepala untuk merotasi badan
+            const ry = camera.rotation.y;
+            socket.emit('playerMovement', { x: camera.position.x, y: camera.position.y, z: camera.position.z, ry: ry });
         }
     }
 
@@ -236,7 +398,6 @@ function animate() {
 
 animate();
 
-// Resize layar otomatis
 window.addEventListener('resize', () => {
     renderer.setSize(window.innerWidth, window.innerHeight);
     camera.aspect = window.innerWidth / window.innerHeight;
