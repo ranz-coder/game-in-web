@@ -140,8 +140,18 @@ window.addEventListener('keyup', (e) => {
     if(e.code === 'KeyS') moveState.backward = false;
     if(e.code === 'KeyA') moveState.left = false;
     if(e.code === 'KeyD') moveState.right = false;
-    if(e.code === 'Space') moveState.up = false;
-    if(e.code === 'ShiftLeft') moveState.shift = false, moveState.down = false;
+    
+    // Perbaikan di sini: Mereset status lonpat dan terbang naik saat spasi dilepas
+    if(e.code === 'Space') { 
+        moveState.up = false; 
+        moveState.jump = false; 
+    }
+    
+    if(e.code === 'ShiftLeft') { 
+        moveState.shift = false; 
+        moveState.down = false; 
+    }
+});
 });
 
 // Throttling network sync agar tidak patah-patah
