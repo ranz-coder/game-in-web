@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Web Voxel Game</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+</head>
+<body>
+    <div id="ui-menu">
+        <h1>Voxel Web Game</h1>
+        <button id="btn-play">Mulai Bermain</button>
+        <p>Gunakan W, A, S, D untuk bergerak</p>
+    </div>
+
+    <div id="chat-container" style="display: none;">
+        <div id="chat-messages"></div>
+        <input type="text" id="chat-input" placeholder="Tekan Enter untuk chat..." autocomplete="off" />
+    </div>
+
+    <script src="game.js"></script>
+</body>
+</html>
