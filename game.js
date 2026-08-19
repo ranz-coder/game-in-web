@@ -3,7 +3,7 @@ const socket = io(BACKEND_URL);
 
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x87CEEB);
-scene.fog = new THREE.Fog(0x87CEEB, 15, 45);
+scene.fog = new THREE.Fog(0x87CEEB, 30, 95);
 
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
 scene.add(camera);
@@ -205,11 +205,18 @@ function terrainHeightAt(x, z) {
     return Math.floor(Math.sin(x * 0.2) * Math.cos(z * 0.2) * 2);
 }
 
+// Bigger world: wide radius, but only fill a few layers below the surface
+// (bedrock-to-sky fill isn't visible anyway and costs a lot of meshes since
+// every block here is its own THREE.Mesh — no chunking/instancing yet).
+const WORLD_RADIUS = 20;   // -20..20 -> 41x41 columns (vs 21x21 before)
+const SURFACE_DEPTH = 4;   // how many layers deep are actually generated
+
 function generateTerrain() {
-    for (let x = -10; x <= 10; x++) {
-        for (let z = -10; z <= 10; z++) {
+    for (let x = -WORLD_RADIUS; x <= WORLD_RADIUS; x++) {
+        for (let z = -WORLD_RADIUS; z <= WORLD_RADIUS; z++) {
             const height = terrainHeightAt(x, z);
-            for (let y = -4; y <= height; y++) {
+            const minY = currentDimension === 'end' ? height : height - SURFACE_DEPTH;
+            for (let y = minY; y <= height; y++) {
                 createBlock(x, y, z, y === height && currentDimension !== 'end' ? 'grass' : 'stone');
             }
         }
@@ -220,10 +227,10 @@ function generateTerrain() {
 function placeTrees() {
     const used = new Set();
     let placed = 0, attempts = 0;
-    while (placed < 7 && attempts < 60) {
+    while (placed < 18 && attempts < 150) {
         attempts++;
-        const tx = Math.floor(rand(-8, 8));
-        const tz = Math.floor(rand(-8, 8));
+        const tx = Math.floor(rand(-WORLD_RADIUS + 2, WORLD_RADIUS - 2));
+        const tz = Math.floor(rand(-WORLD_RADIUS + 2, WORLD_RADIUS - 2));
         const k = `${tx},${tz}`;
         if (used.has(k)) continue;
         used.add(k);
@@ -292,9 +299,10 @@ controls.addEventListener('unlock', () => {
     document.getElementById('ui-menu').style.display = 'flex';
 });
 
-const moveState = { forward: false, backward: false, left: false, right: false, jump: false, shift: false, fly: false, up: false, down: false };
+const moveState = { forward: false, backward: false, left: false, right: false, shift: false, fly: false, up: false, down: false, spaceHeld: false };
 let velocityY = 0;
 let onGround = false;
+let jumpQueued = false; // edge-triggered: one Space press = one jump, not a bounce loop
 const PLAYER_HEIGHT = 1.7;   // eyes above feet
 const PLAYER_EYE_TOP_MARGIN = 0.2;
 const GRAVITY = 25.0;
@@ -323,7 +331,14 @@ window.addEventListener('keydown', (e) => {
     if (e.code === 'KeyS') moveState.backward = true;
     if (e.code === 'KeyA') moveState.left = true;
     if (e.code === 'KeyD') moveState.right = true;
-    if (e.code === 'Space') { if (moveState.fly) moveState.up = true; else moveState.jump = true; }
+    if (e.code === 'Space') {
+        if (moveState.fly) {
+            moveState.up = true;
+        } else if (!moveState.spaceHeld) {
+            jumpQueued = true; // only queue a jump on the initial press, not every frame it's held
+        }
+        moveState.spaceHeld = true;
+    }
     if (e.code === 'ShiftLeft') { if (moveState.fly) moveState.down = true; else moveState.shift = true; }
     if (e.code === 'KeyF') moveState.fly = !moveState.fly;
     if (e.code === 'Digit7') switchDimension('overworld');
@@ -336,7 +351,7 @@ window.addEventListener('keydown', (e) => {
         if (slot) selectSlot(slot);
     }
 
-    if (e.code === 'Enter' && controls.isLocked) {
+    if (e.code === 'KeyT' && controls.isLocked) {
         suppressMenuOnUnlock = true;
         controls.unlock();
         chatInput.focus();
@@ -349,7 +364,7 @@ window.addEventListener('keyup', (e) => {
     if (e.code === 'KeyS') moveState.backward = false;
     if (e.code === 'KeyA') moveState.left = false;
     if (e.code === 'KeyD') moveState.right = false;
-    if (e.code === 'Space') { moveState.up = false; moveState.jump = false; }
+    if (e.code === 'Space') { moveState.up = false; moveState.spaceHeld = false; }
     if (e.code === 'ShiftLeft') { moveState.shift = false; moveState.down = false; }
 });
 
@@ -553,10 +568,14 @@ function animate() {
             const feetY = newY - PLAYER_HEIGHT;
 
             if (velocityY <= 0 && isSolid(camera.position.x, feetY, camera.position.z)) {
-                camera.position.y = Math.round(feetY) + 1 + PLAYER_HEIGHT;
+                // Snap feet to the TOP surface of the block (center + 0.5), not center + 1.
+                // The old "+1" landed the player half a block too high, so gravity pulled them
+                // back down next frame, the collision re-triggered, and they got launched back
+                // up again — a constant micro-bounce loop (this was the "lompat-lompat" bug).
+                camera.position.y = Math.round(feetY) + 0.5 + PLAYER_HEIGHT;
                 velocityY = 0;
                 onGround = true;
-                if (moveState.jump) { velocityY = 8; onGround = false; }
+                if (jumpQueued) { velocityY = 8; onGround = false; jumpQueued = false; }
             } else if (velocityY > 0 && isSolid(camera.position.x, newY - PLAYER_EYE_TOP_MARGIN, camera.position.z)) {
                 velocityY = 0;
                 camera.position.y = newY;
