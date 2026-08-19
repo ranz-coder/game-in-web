@@ -3,28 +3,33 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Minecraft Web Clone</title>
+    <title>Minecraft Web Prototype</title>
     <link rel="stylesheet" href="style.css">
     
-    <!-- Three.js Core -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <!-- PointerLockControls untuk First Person Camera ala Minecraft -->
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/PointerLockControls.js"></script>
-    <!-- Socket.io -->
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
 </head>
 <body>
-    <!-- Crosshair di tengah layar -->
     <div id="crosshair">+</div>
 
-    <!-- UI Menu -->
-    <div id="ui-menu">
-        <h1>Web Voxel Game</h1>
-        <button id="btn-play">Klik Untuk Bermain</button>
-        <p>W, A, S, D = Bergerak | Spasi = Lompat | ESC = Menu / Chat</p>
+    <!-- Hotbar UI ala Minecraft -->
+    <div id="hotbar">
+        <div class="slot active" id="slot-1" data-type="grass"><img src="https://raw.githubusercontent.com/InventivetalentDev/minecraft-assets/master/assets/minecraft/textures/block/grass_block_side.png"><span>1</span></div>
+        <div class="slot" id="slot-2" data-type="dirt"><img src="https://raw.githubusercontent.com/InventivetalentDev/minecraft-assets/master/assets/minecraft/textures/block/dirt.png"><span>2</span></div>
+        <div class="slot" id="slot-3" data-type="wood"><img src="https://raw.githubusercontent.com/InventivetalentDev/minecraft-assets/master/assets/minecraft/textures/block/oak_log.png"><span>3</span></div>
+        <div class="slot" id="slot-4" data-type="stone"><img src="https://raw.githubusercontent.com/InventivetalentDev/minecraft-assets/master/assets/minecraft/textures/block/stone.png"><span>4</span></div>
+        <div class="slot" id="slot-5" data-type="cobblestone"><img src="https://raw.githubusercontent.com/InventivetalentDev/minecraft-assets/master/assets/minecraft/textures/block/cobblestone.png"><span>5</span></div>
+        <div class="slot" id="slot-6" data-type="bricks"><img src="https://raw.githubusercontent.com/InventivetalentDev/minecraft-assets/master/assets/minecraft/textures/block/bricks.png"><span>6</span></div>
     </div>
 
-    <!-- UI Chat -->
+    <div id="ui-menu">
+        <h1>Minecraft Web</h1>
+        <button id="btn-play">Klik Untuk Bermain</button>
+        <p>W, A, S, D = Bergerak | Spasi = Lompat | Klik Kiri = Hancurkan | Klik Kanan = Taruh Blok</p>
+        <p>Tekan 1-6 untuk mengganti blok</p>
+    </div>
+
     <div id="chat-container">
         <div id="chat-messages"></div>
         <input type="text" id="chat-input" placeholder="Tekan ESC lalu klik di sini untuk chat..." autocomplete="off" />
