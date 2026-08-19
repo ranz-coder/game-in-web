@@ -152,7 +152,6 @@ window.addEventListener('keyup', (e) => {
         moveState.down = false; 
     }
 });
-});
 
 // Throttling network sync agar tidak patah-patah
 let lastSync = 0;
