@@ -2,6 +2,7 @@ body {
     margin: 0; overflow: hidden;
     font-family: 'Press Start 2P', cursive; /* Font Pixel */
     background-color: #87CEEB;
+    user-select: none;
 }
 
 #crosshair {
@@ -11,6 +12,14 @@ body {
     font-size: 20px; font-family: monospace; font-weight: bold;
     pointer-events: none; z-index: 5;
     text-shadow: 2px 2px 0px rgba(0,0,0,0.5);
+}
+
+#online-count {
+    position: absolute; top: 10px; right: 12px;
+    color: #fff; font-size: 9px; z-index: 6;
+    text-shadow: 2px 2px 0 #000;
+    background: rgba(0,0,0,0.35); padding: 6px 10px;
+    border: 2px solid #000;
 }
 
 /* Tampilan Menu ala Minecraft */
@@ -29,16 +38,39 @@ body {
     padding: 40px; border: 4px solid #000;
 }
 
-#menu-box h1 { color: #fff; text-shadow: 4px 4px 0 #3f3f3f; line-height: 1.5; }
+#menu-box h1 { color: #fff; text-shadow: 4px 4px 0 #3f3f3f; line-height: 1.5; margin: 0 0 20px; }
+
+#username-input {
+    display: block;
+    width: 260px;
+    margin: 0 auto 14px;
+    padding: 12px 10px;
+    font-family: 'Press Start 2P', cursive;
+    font-size: 11px;
+    color: #fff;
+    background: #1a1a1a;
+    border: 3px solid #000;
+    box-shadow: inset 2px 2px 0px #000, inset -2px -2px 0px #555;
+    outline: none;
+    text-align: center;
+    box-sizing: border-box;
+}
+#username-input:focus { box-shadow: inset 2px 2px 0px #000, inset -2px -2px 0px #7ec8ff; }
 
 #btn-play {
-    margin-top: 20px; padding: 15px 30px; font-size: 16px;
+    padding: 15px 30px; font-size: 16px;
     background-color: #727272; color: white;
     border: 3px solid #000; cursor: pointer;
     font-family: 'Press Start 2P', cursive;
     box-shadow: inset 4px 4px 0px #aaaaaa, inset -4px -4px 0px #333333;
 }
 #btn-play:hover { background-color: #888; box-shadow: inset 4px 4px 0px #cccccc, inset -4px -4px 0px #444444; }
+#btn-play:active { box-shadow: inset -4px -4px 0px #aaaaaa, inset 4px 4px 0px #333333; }
+
+#menu-error {
+    color: #ff6b6b; font-size: 9px; height: 12px; margin: 10px 0 0;
+    text-shadow: 2px 2px 0 #000;
+}
 
 .controls-info { margin-top: 30px; color: #ccc; font-size: 10px; line-height: 2; }
 
@@ -52,11 +84,10 @@ body {
 
 .slot {
     width: 48px; height: 48px; background: #8b8b8b;
+    background-size: cover; image-rendering: pixelated;
     border: 3px solid #000; box-shadow: inset 2px 2px 0px #fff, inset -2px -2px 0px #555;
     position: relative; box-sizing: border-box; cursor: pointer;
 }
-
-.slot img { width: 100%; height: 100%; image-rendering: pixelated; }
 
 .slot span {
     position: absolute; bottom: 2px; right: 4px;
@@ -67,4 +98,5 @@ body {
 
 #chat-container { position: absolute; bottom: 90px; left: 20px; width: 350px; z-index: 15; }
 #chat-messages { background: rgba(0, 0, 0, 0.6); color: white; height: 150px; overflow-y: auto; padding: 10px; margin-bottom: 5px; font-size: 10px; text-shadow: 1px 1px 0 #000; line-height: 1.5; }
+#chat-messages div { margin-bottom: 4px; word-break: break-word; }
 #chat-input { width: 100%; padding: 10px; border: 2px solid #000; background: rgba(0, 0, 0, 0.8); color: white; outline: none; box-sizing: border-box; font-family: 'Press Start 2P', cursive; font-size: 10px; }

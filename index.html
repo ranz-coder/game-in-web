@@ -7,7 +7,7 @@
     <!-- Font Pixel ala Minecraft -->
     <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
-    
+
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/PointerLockControls.js"></script>
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
@@ -15,26 +15,31 @@
 <body>
     <div id="crosshair">+</div>
 
+    <div id="online-count">1 online</div>
+
     <!-- Hotbar UI -->
     <div id="hotbar">
-        <div class="slot active" id="slot-1" data-type="grass"><img id="img-grass"><span>1</span></div>
-        <div class="slot" id="slot-2" data-type="dirt"><img id="img-dirt"><span>2</span></div>
-        <div class="slot" id="slot-3" data-type="wood"><img id="img-wood"><span>3</span></div>
-        <div class="slot" id="slot-4" data-type="stone"><img id="img-stone"><span>4</span></div>
-        <div class="slot" id="slot-5" data-type="cobblestone"><img id="img-cobblestone"><span>5</span></div>
-        <div class="slot" id="slot-6" data-type="bricks"><img id="img-bricks"><span>6</span></div>
+        <div class="slot active" id="slot-1" data-type="grass"><span>1</span></div>
+        <div class="slot" id="slot-2" data-type="dirt"><span>2</span></div>
+        <div class="slot" id="slot-3" data-type="wood"><span>3</span></div>
+        <div class="slot" id="slot-4" data-type="stone"><span>4</span></div>
+        <div class="slot" id="slot-5" data-type="cobblestone"><span>5</span></div>
+        <div class="slot" id="slot-6" data-type="bricks"><span>6</span></div>
     </div>
 
     <!-- UI Menu -->
     <div id="ui-menu">
         <div id="menu-box">
             <h1>MINECRAFT<br><span style="font-size: 14px; color:#e0e0e0;">WEB EDITION</span></h1>
+            <input type="text" id="username-input" placeholder="Ketik nama kamu..." maxlength="16" autocomplete="off" autofocus />
             <button id="btn-play">Mulai Bermain</button>
+            <p id="menu-error"></p>
             <div class="controls-info">
                 <p>WASD: Bergerak | SPASI: Lompat</p>
                 <p>KLIK KIRI: Hancurkan Blok</p>
                 <p>KLIK KANAN: Taruh Blok</p>
-                <p>1-6: Pilih Blok | ESC: Menu / Chat</p>
+                <p>1-6: Pilih Blok | ESC: Menu</p>
+                <p>ENTER: Chat | F: Terbang</p>
             </div>
         </div>
     </div>
@@ -42,7 +47,7 @@
     <!-- UI Chat -->
     <div id="chat-container">
         <div id="chat-messages"></div>
-        <input type="text" id="chat-input" placeholder="Ketik pesan..." autocomplete="off" />
+        <input type="text" id="chat-input" placeholder="Ketik pesan... (Enter kirim, Esc batal)" autocomplete="off" />
     </div>
 
     <script src="game.js"></script>
