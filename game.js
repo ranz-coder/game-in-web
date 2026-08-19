@@ -1,5 +1,5 @@
 // PENTING: Ganti string di bawah dengan URL dari Replit Anda
-const BACKEND_URL = 'http://45.142.115.40:3535';
+const BACKEND_URL = 'https://game-in-web-api.ranzzawok.my.id';
 const socket = io(BACKEND_URL); 
 
 const uiMenu = document.getElementById('ui-menu');
